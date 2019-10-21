@@ -1,15 +1,26 @@
+//importando as bibliotecas necessárias
+#include "time.h"
 #include "EEPROM.h"
 #include <WiFi.h>
+#include <BLE2902.h>
+#include <BLEUtils.h>
 #include <BLEDevice.h>
 #include <BLEServer.h>
-#include <BLEUtils.h>
-#include <BLE2902.h>
+#include <Ultrasonic.h>
 #include <FirebaseESP32.h>
+
+//Definindo os pinos na esp32 e variáveis.
+#define pino_echo 27
+#define pino_buzzer 5
+#define pino_trigger 2
+#define pino_led_azul 12 //bluetooth
+#define pino_led_branco 4 //sinal sonoro
+#define pino_led_verde 18 //WiFi
 
 #define EEPROM_SIZE 128
 #define SERVICE_UUID        "87b34f52-4765-4d3a-b902-547751632d72"
 #define CHARACTERISTIC_UUID "a97d209a-b1d6-4edf-b67f-6a0c25fa42c9"
-#define TARGET_DEVICE_NAME "AdestraKit"
+#define TARGET_DEVICE_NAME  "AdestraKit"
 
 #define Host "https://adestrakit.firebaseio.com/"
 #define Senha_Fire "8ZMdyCFrQ9KRMFPJOuVkRrNRtdAcCB9BKDy6UIRx"
@@ -19,16 +30,30 @@ BLECharacteristic* pCharacteristic = NULL;
 bool deviceConnected = false;
 bool oldDeviceConnected = false;
 
-#define ledBle 2 //azul
-#define ledWifi 4 //verde
 const int modeAddr = 0;
 const int wifiAddr = 10;
 
 int modeIdx;
+int channel = 0;
+int resolution = 10;
+int frequence = 2000;
+
+int qtdEntradaLocal;
+float distancia = 50.0; //virá do app o valor.
+
+//chama uma função no servidor de horário.
+const char* ntpServer = "pool.ntp.org";
+const long  gmtOffset_sec = 0;
+
+//regula o fuso horário.
+const int   daylightOffset_sec = -3600*3;
 
 //Define FirebaseESP32 data object
 FirebaseData firebaseData;
 const String bd = "configEsp/";
+
+//Inicializa o sensor nos pinos definidos acima
+Ultrasonic ultrasonic(pino_trigger, pino_echo);
 
 class MyServerCallbacks: public BLEServerCallbacks {
     void onConnect(BLEServer* pServer) {
@@ -46,7 +71,8 @@ class MyCallbacks: public BLECharacteristicCallbacks {
 
       if (value.length() > 0) {
         Serial.print("Value Callback: ");
-        //Serial.println(value.c_str());
+        //se quiser ver o que está chegando
+        Serial.println(value.c_str());
         writeString(wifiAddr, value.c_str());
       }
     }
@@ -60,10 +86,42 @@ class MyCallbacks: public BLECharacteristicCallbacks {
     }
 };
 
-void setup() {
-  Serial.begin(115200);
-  pinMode(ledBle, OUTPUT);
-  pinMode(ledWifi, OUTPUT);
+//imprime o horário do servidor.
+void printLocalTime(){
+  struct tm timeinfo;
+  if(!getLocalTime(&timeinfo)){
+    Serial.println("Falha ao obter a hora");
+    return;
+  }
+ Serial.println(&timeinfo, "%A, %B %d %Y %H:%M:%S");
+}
+
+void setup(){  
+  Serial.begin(115200); 
+     
+  pinMode(pino_echo, INPUT);
+  pinMode(pino_trigger, OUTPUT);  
+  pinMode(pino_led_azul, OUTPUT);//bluetooth
+  pinMode(pino_led_verde, OUTPUT); //WiFi
+  pinMode(pino_led_branco, OUTPUT);//sinal sonoro
+  qtdEntradaLocal = 0;
+
+  ledcSetup(channel, frequence, resolution);
+  ledcAttachPin(pino_buzzer, channel); 
+
+  /*/connect to WiFi
+  Serial.printf("Conectando em %s ", ssid);
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+      delay(500);
+      Serial.print(".");
+  }
+  Serial.println(" Feito");*/
+  
+  configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
+  printLocalTime();
+  WiFi.disconnect(true);
+  WiFi.mode(WIFI_OFF);
 
   if (!EEPROM.begin(EEPROM_SIZE)) {
     delay(1000);
@@ -77,19 +135,16 @@ void setup() {
 
   if (modeIdx != 0) {
     //BLE Mode, azul
-    digitalWrite(ledBle, false);//liga no false
-    digitalWrite(ledWifi, true);
+    digitalWrite(pino_led_azul, false);//liga no false
     Serial.println("BLE MODE");
     bleTask();
   } else {
     //Wifi mode, verde
-    digitalWrite(ledWifi, false);//liga no false
-    digitalWrite(ledBle, true);
+    digitalWrite(pino_led_verde, true);
     Serial.println("WIFI MODE");
     wifiTask();
   }
 }
-
 
 void bleTask() {
   // Create the BLE Device
@@ -204,32 +259,26 @@ void sendFirebase(){
   Firebase.setString(firebaseData,bd + macAdress + "user_id", "user_id novo" );
 }
 
+float medeDistancia(){  
+  float cmMsec;
+  long microsec = ultrasonic.timing();
+  cmMsec = ultrasonic.convert(microsec, Ultrasonic::CM);
 
+  return cmMsec;  
+}
 
-void loop() {
-  // put your main code here, to run repeatedly:
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+void loop(){
+  
+  if (medeDistancia() <= distancia){    
+    qtdEntradaLocal++;
+    Serial.printf("Entrou no local:%d" , qtdEntradaLocal);
+    printLocalTime();               
+    digitalWrite(pino_led_branco, HIGH);   
+    delay(3000);
+    ledcWriteTone(channel,650);//frequencia  
+  }else{  
+    digitalWrite(pino_led_branco, LOW);
+    ledcWriteTone(channel,0);
+  }
+  delay(1000);
 }

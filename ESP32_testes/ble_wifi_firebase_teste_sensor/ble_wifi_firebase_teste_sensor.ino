@@ -5,6 +5,8 @@
 #include <BLEUtils.h>
 #include <BLE2902.h>
 #include <FirebaseESP32.h>
+#include "time.h"
+#include <Ultrasonic.h>
 
 #define EEPROM_SIZE 128
 #define SERVICE_UUID        "87b34f52-4765-4d3a-b902-547751632d72"
@@ -24,7 +26,27 @@ bool oldDeviceConnected = false;
 const int modeAddr = 0;
 const int wifiAddr = 10;
 
+//frequencia do som do buzzer
+int channel = 0;
+int frequence = 2000;
+int resolution = 10;
+
+//chama uma função no servidor de horário.
+const char* ntpServer = "pool.ntp.org";
+const long  gmtOffset_sec = 0;
+
+#define pino_echo 27
+#define pino_buzzer 5
+#define pino_trigger 2
+
 int modeIdx;
+//quantidade de vezes que entrou no local.
+int qtdEntradaLocal;
+//váriavel que receberá a distância vinda do usuário (aqui fixada com valor para teste).
+float distancia = 50.0;
+
+//Inicializa o sensor nos pinos definidos acima
+Ultrasonic ultrasonic(pino_trigger, pino_echo);
 
 //Define FirebaseESP32 data object
 FirebaseData firebaseData;
@@ -61,7 +83,15 @@ class MyCallbacks: public BLECharacteristicCallbacks {
 };
 
 void setup() {
-  Serial.begin(115200);
+
+    Serial.begin(115200);    
+  pinMode(pino_echo, INPUT);
+  pinMode(pino_trigger, OUTPUT);
+  //pinMode(pino_led_verde, OUTPUT); //WiFi
+  //pinMode(pino_led_azul, OUTPUT);//bluetooth
+  //pinMode(pino_led_branco, OUTPUT);//sinal sonoro
+  qtdEntradaLocal = 0;
+  //Serial.begin(115200);
   pinMode(ledBle, OUTPUT);
   pinMode(ledWifi, OUTPUT);
 
@@ -205,31 +235,47 @@ void sendFirebase(){
 }
 
 
+//imprime o horário do servidor.
+void printLocalTime(){
+  struct tm timeinfo;
+  if(!getLocalTime(&timeinfo)){
+    Serial.println("Falha ao obter a hora");
+    return;
+  }
+ Serial.println(&timeinfo, "%A, %B %d %Y %H:%M:%S");
+}
+
 
 void loop() {
-  // put your main code here, to run repeatedly:
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-}
+    
+    //Le as informacoes do sensor, em cm e pol
+    float cmMsec, inMsec;
+    long microsec = ultrasonic.timing();
+    cmMsec = ultrasonic.convert(microsec, Ultrasonic::CM);
+    inMsec = ultrasonic.convert(microsec, Ultrasonic::IN);
+  
+    //Exibe informacoes no serial monitor
+    Serial.print("Distancia em cm: ");
+    Serial.print(cmMsec);
+    Serial.print(" - Distancia em polegadas: ");
+    Serial.println(inMsec);
+    Serial.print(" ");
+  
+    //Será colocado uma variável que será fornecida pela usuário
+    if (cmMsec <= distancia){
+          
+      qtdEntradaLocal++;
+      Serial.printf("Entrou no local:%d" , qtdEntradaLocal);
+      Serial.println("Na data e horário: ");
+      printLocalTime();
+            
+      digitalWrite(pino_led_branco, HIGH);   
+      delay(3000);
+      ledcWriteTone(channel,650);//frequencia 
+      
+    }else{
+      digitalWrite(pino_led_branco, LOW);
+      ledcWriteTone(channel,0);
+    }
+    delay(1000);
+  }
