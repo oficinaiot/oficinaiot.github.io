@@ -6,30 +6,68 @@
 #include <BLE2902.h>
 #include <FirebaseESP32.h>
 
+//erivelton
+//#include "time.h"
+//#include <Ultrasonic.h>
+
 #define EEPROM_SIZE 128
+
+//conexão com BLE
 const PROGMEM char SERVICE_UUID[] = "87b34f52-4765-4d3a-b902-547751632d72";
 const PROGMEM char CHARACTERISTIC_UUID[] = "a97d209a-b1d6-4edf-b67f-6a0c25fa42c9";
 const PROGMEM char TARGET_DEVICE_NAME[] = "AdestraKit";
-
-const PROGMEM char Host[] = "https://adestrakit.firebaseio.com/";
-const PROGMEM char Senha_Fire[] = "8ZMdyCFrQ9KRMFPJOuVkRrNRtdAcCB9BKDy6UIRx";
-
 BLEServer* pServer = NULL;
 BLECharacteristic* pCharacteristic = NULL;
 bool deviceConnected = false;
 bool oldDeviceConnected = false;
 
-#define ledBle 2 //azul
-#define ledWifi 4 //verde
-const int modeAddr = 0;
-const int wifiAddr = 10;
-String receivedData;
-
-int modeIdx;
-
-//Define FirebaseESP32 data object
+//conexão com firebase
+const PROGMEM char Host[] = "https://adestrakit.firebaseio.com/";
+const PROGMEM char Senha_Fire[] = "8ZMdyCFrQ9KRMFPJOuVkRrNRtdAcCB9BKDy6UIRx";
 FirebaseData firebaseData;
 const PROGMEM char bd[] = "configEsp/";
+const PROGMEM char avancos[] = "avancos/";
+
+//definindo pinos e variáveis esp32 - 38 pinos
+#define ledBle 2 //azul
+#define ledWifi 4 //verde
+#define ledAlerta 12 //led de alerta para o animal
+
+#define pino_echo 17
+#define pino_buzzer 13
+#define pino_trigger 16
+
+//erivelton
+//Definindo os pinos na esp32 e variáveis.
+
+//#define pino_led_azul 12 //bluetooth
+//#define pino_led_branco 4 //sinal sonoro
+//#define pino_led_verde 18 //WiFi
+
+
+//contantes
+const PROGMEM int modeAddr = 0;
+const PROGMEM int wifiAddr = 10;
+
+//variáveis globais
+String receivedData;
+int modeIdx;
+
+/*
+//erivelton
+//Inicializa o sensor nos pinos definidos acima
+Ultrasonic ultrasonic(pino_trigger, pino_echo);
+//regula o fuso horário.
+const int   daylightOffset_sec = -3600*3;
+//chama uma função no servidor de horário.
+const PROGMEM char ntpServer[] = "pool.ntp.org";
+long gmtOffset_sec = 0;
+int qtdEntradaLocal;
+float distancia = 50.0; //virá do app o valor.
+int channel = 0;
+int resolution = 10;
+int frequence = 2000;
+*/
 
 class MyServerCallbacks: public BLEServerCallbacks {
     void onConnect(BLEServer* pServer) {
@@ -65,12 +103,36 @@ class MyCallbacks: public BLECharacteristicCallbacks {
       EEPROM.commit();
     }
 };
-
+/*
+//erivelton
+//imprime o horário do servidor.
+void printLocalTime(){
+  struct tm timeinfo;
+  if(!getLocalTime(&timeinfo)){
+    Serial.println("Falha ao obter a hora");
+    return;
+  }
+ Serial.println(&timeinfo, "%A, %B %d %Y %H:%M:%S");
+}
+*/
 void setup() {
   Serial.begin(115200);
   pinMode(ledBle, OUTPUT);
   pinMode(ledWifi, OUTPUT);
 
+/*
+  //erivelton
+  pinMode(pino_echo, INPUT);
+  pinMode(pino_trigger, OUTPUT);  
+//  pinMode(pino_led_azul, OUTPUT);//bluetooth
+//  pinMode(pino_led_verde, OUTPUT); //WiFi
+//  pinMode(pino_led_branco, OUTPUT);//sinal sonoro
+  qtdEntradaLocal = 0;
+  ledcSetup(channel, frequence, resolution);
+  ledcAttachPin(pino_buzzer, channel);
+*/
+
+  //resto setup esta ok
   if (!EEPROM.begin(EEPROM_SIZE)) {
     delay(1000);
   }
@@ -84,12 +146,12 @@ void setup() {
   if (modeIdx != 0) {
     //BLE Mode, azul
     digitalWrite(ledBle, false);//liga no false
-    digitalWrite(ledWifi, true);
+    digitalWrite(ledWifi, true);//desliga o LedWifi
     Serial.println(F("BLE MODE"));
     bleTask();
   } else {
     //Wifi mode, verde
-    digitalWrite(ledWifi, false);//liga no false
+    //desligando o ledBle
     digitalWrite(ledBle, true);
     Serial.println(F("WIFI MODE"));
     wifiTask();
@@ -160,7 +222,10 @@ void wifiTask() {
       Serial.println(F("Senha da Rede Wifi: Oculta"));
 
       while (WiFi.status() != WL_CONNECTED) {
-        delay(500);
+        digitalWrite(ledWifi, true);
+        delay(250);
+        digitalWrite(ledWifi, false);//liga no false
+        delay(250);
         Serial.print(F("."));
       }
       
@@ -169,10 +234,15 @@ void wifiTask() {
       Serial.println(WiFi.localIP());
       Serial.println();
     }
+
+    //horário
+   // configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
+   // printLocalTime();
+    
     //conecta no firebase
     Firebase.begin(Host, Senha_Fire); 
 
-    //só teste 
+    //só teste para ver se está inicializando todas as conexões
     sendFirebase();
   }
 }
@@ -223,11 +293,34 @@ void sendFirebase(){
 
 
 
+/*
+//erivelton
+float medeDistancia(){  
+  float cmMsec = 2;
+//  long microsec = ultrasonic.timing();
+//  cmMsec = ultrasonic.convert(microsec, Ultrasonic::CM);
+  return cmMsec;  
+}
+*/
 void loop() {
-  // put your main code here, to run repeatedly:
 
 
 
+  /*
+  //loop do erivelton
+  if (medeDistancia() <= distancia){    
+    qtdEntradaLocal++;
+    Serial.printf("Entrou no local:%d" , qtdEntradaLocal);
+    //printLocalTime();               
+    digitalWrite(ledAlerta, false);   
+    delay(3000);
+    ledcWriteTone(channel,650);//frequencia  
+  }else{  
+    digitalWrite(ledAlerta, true);
+    ledcWriteTone(channel,0);
+  }
+  delay(1000);
+*/
 
 
 

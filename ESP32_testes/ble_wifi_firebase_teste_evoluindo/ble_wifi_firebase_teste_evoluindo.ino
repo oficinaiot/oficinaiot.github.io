@@ -5,7 +5,7 @@
 #include <BLEUtils.h>
 #include <BLE2902.h>
 #include <FirebaseESP32.h>
-#include <NewPing.h>
+#include <Ultrasonic.h>
 
 #define EEPROM_SIZE 128
 #define SERVICE_UUID        "87b34f52-4765-4d3a-b902-547751632d72"
@@ -29,27 +29,36 @@ const int wifiAddr = 10;
 String receivedData;
 
 //criando o sonar
-#define SONAR_NUM 1      // Number of sensors.
-#define MAX_DISTANCE 500 // Maximum distance (in cm) to ping.
+//#define SONAR_NUM 1      // Number of sensors.
+//#define MAX_DISTANCE 500 // Maximum distance (in cm) to ping.
 //usando este para os testes unitários
-#define PIN_TRIG_CENTRO 16  //amarelo
-#define PIN_ECHO_CENTRO 17  //verde
+#define PIN_TRIG_CENTRO 32  //amarelo - envia
+#define PIN_ECHO_CENTRO 35  //verde - recebe
 //#define PIN_TRIG_DIR   //amarelo
 //#define PIN_ECHO_DIR   //verde
 //#define PIN_TRIG_ESQ   //amarelo
 //#define PIN_ECHO_ESQ   //verde
 
+
+Ultrasonic sensorCentro(PIN_TRIG_CENTRO, PIN_ECHO_CENTRO);  // An ultrasonic sensor HC-04
+//Ultrasonic sensorDireito(PIN_TRIG_DIR,PIN_ECHO_DIR);   // An ultrasonic sensor PING)))
+//Ultrasonic sendorEsquerdo(PIN_TRIG_ESQ,PIN_ECHO_ESQ);    // An Seeed Studio ultrasonic sensor
+
+//deixando multitarefa
+unsigned int pingSpeed = 1000;
+unsigned long pingTimer;
+
 #define CHANELL    0
 #define FREQUENCE  200
 #define RESOLUTION 10
 #define BUZZER_PIN 22
-
+/*
 NewPing sonar[SONAR_NUM] = {   // Sensor object array.
   //NewPing(PIN_TRIG_DIR, PIN_ECHO_DIR, MAX_DISTANCE), // Each sensor's trigger pin, echo pin, and max distance to ping. 
   NewPing(PIN_TRIG_CENTRO, PIN_ECHO_CENTRO, MAX_DISTANCE), //
   //NewPing(PIN_TRIG_ESQ, PIN_ECHO_ESQ, MAX_DISTANCE)
 };
-
+*/
 
 
 //Define FirebaseESP32 data object
@@ -95,10 +104,14 @@ void setup() {
   Serial.begin(115200);
   pinMode(ledBle, OUTPUT);
   pinMode(ledWifi, OUTPUT);
+  pinMode(ledInvasao, OUTPUT);
 
   //colocando o sensor - sonar
   ledcSetup(CHANELL, FREQUENCE, RESOLUTION);
   ledcAttachPin(BUZZER_PIN, CHANELL);
+
+  //definindo para deixar não usar com o delay
+  pingTimer = millis();
 
   if (!EEPROM.begin(EEPROM_SIZE)) {
     delay(1000);
@@ -111,22 +124,19 @@ void setup() {
   EEPROM.commit();
 
   if (modeIdx != 0) {
-    //BLE Mode, azul
-    digitalWrite(ledBle, false);//liga no false
-    digitalWrite(ledWifi, true);
-    Serial.println("BLE MODE");
     bleTask();
   } else {
-    //Wifi mode, verde
-    digitalWrite(ledWifi, false);//liga no false
-    digitalWrite(ledBle, true);
-    Serial.println("WIFI MODE");
     wifiTask();
   }
 }
 
 
 void bleTask() {
+    //BLE Mode, azul
+    digitalWrite(ledBle, false);//liga o ledo do bluetooth
+    digitalWrite(ledWifi, true);//desliga o led do wifi
+    Serial.println("BLE MODE");
+  
   // Create the BLE Device
   BLEDevice::init("ESP32 AdestraKit");
 
@@ -164,7 +174,8 @@ void bleTask() {
 }
 
 void wifiTask() {
-   
+  digitalWrite(ledBle, true);//desliga o ledBle
+  Serial.println("WIFI MODE");
   //comentando para fazer testes com as novas variáveis até que o código esteja recebendo informações do app
   //String receivedData;
   //receivedData = read_string(wifiAddr);
@@ -189,7 +200,11 @@ void wifiTask() {
       Serial.println("Senha da Rede Wifi: Oculta");
 
       while (WiFi.status() != WL_CONNECTED) {
-        delay(500);
+        //Wifi mode, verde
+        digitalWrite(ledWifi, true);
+        delay(300);        
+        digitalWrite(ledWifi, false);//liga no false
+        delay(300);
         Serial.print(".");
       }
       
@@ -253,9 +268,18 @@ void sendFirebase(){
 
 
 void loop() {
+  //assim o processador fica livre para outras tarefas substitui o delay mais eficiente
+  if (millis() >= pingTimer){
+    pingTimer += pingSpeed;
+    Serial.print(F("Sensor centro: "));
+    Serial.print(sensorCentro.read(CM)); // a distância default é em cm
+    Serial.println(F("cm"));
+
+
+
+    }
+  /*
   // put your main code here, to run repeatedly:
-
-
   for (uint8_t i = 0; i < SONAR_NUM; i++) { // Loop through each sensor and display results.
     delay(50); // Wait 50ms between pings (about 20 pings/sec). 29ms should be the shortest delay between pings.
     Serial.print(i);
@@ -270,7 +294,7 @@ void loop() {
     delay(500);
   }
   Serial.println();
-
+*/
 
 
 
