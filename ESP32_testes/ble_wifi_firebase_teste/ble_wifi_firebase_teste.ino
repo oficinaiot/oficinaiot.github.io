@@ -23,6 +23,7 @@ bool oldDeviceConnected = false;
 #define ledWifi 4 //verde
 const int modeAddr = 0;
 const int wifiAddr = 10;
+String receivedData;
 
 int modeIdx;
 
@@ -44,9 +45,14 @@ class MyCallbacks: public BLECharacteristicCallbacks {
     void onWrite(BLECharacteristic *pCharacteristic) {
       std::string value = pCharacteristic->getValue();
 
+      //recebimento do ble
+      //var wifidata = rede+","+senhaenviada+","+dispositivoid+","+nome+","+local+","+distancia;
+      //wifidata = rede,senhaenviada,dispositivoid,nome,local,distancia
+      //wifidata[0] = rede
+      
       if (value.length() > 0) {
         Serial.print("Value Callback: ");
-        //Serial.println(value.c_str());
+        Serial.println(value.c_str());
         writeString(wifiAddr, value.c_str());
       }
     }
@@ -125,22 +131,32 @@ void bleTask() {
   pAdvertising->setScanResponse(false);
   pAdvertising->setMinPreferred(0x0);  // set value to 0x00 to not advertise this parameter
   BLEDevice::startAdvertising();
-  Serial.println("Waiting a client connection to notify...");
+  Serial.println("Aguardando uma conexão Ble...");
 }
 
 void wifiTask() {
-  String receivedData;
-  receivedData = read_string(wifiAddr);
+   
+  //comentando para fazer testes com as novas variáveis até que o código esteja recebendo informações do app
+  //String receivedData;
+  //receivedData = read_string(wifiAddr);
 
+  receivedData = "AroldoGisele,Ar01d0&Gi5373,dispositivoid,nome,local,15";
   if (receivedData.length() > 0 ) {
-    String wifiName = getValue(receivedData, ',' , 0);
-    String  wifiPassword = getValue(receivedData, ' ' , 1);
+    
+    //tentando usar direto a variável para tentar diminuir o tamanho do sketch
+    //String wifiName = getValue(receivedData, ',' , 0);
+    //String  wifiPassword = getValue(receivedData, ',' , 1);
 
-    if (wifiName.length() > 0 && wifiPassword.length() > 0) {
-     
-      WiFi.begin(wifiName.c_str(), wifiPassword.c_str());
+    //if (wifiName.length() > 0 && wifiPassword.length() > 0) {
+      if (getValue(receivedData, ',' , 0).length() > 0 && getValue(receivedData, ',' , 1).length() > 0) {
+//      atenção aqui
+      //WiFi.begin(wifiName.c_str(), wifiPassword.c_str());
+      WiFi.begin(getValue(receivedData, ',' , 0).c_str(),getValue(receivedData, ',' , 1).c_str());
+      
       Serial.print("Conectando na rede Wifi: ");
-      Serial.println(wifiName);
+      //Serial.println(wifiName);
+      //Serial.println(WiFi.begin(wifiName.c_str());
+      Serial.println(getValue(receivedData, ',' , 0).c_str());
       Serial.println("Senha da Rede Wifi: Oculta");
 
       while (WiFi.status() != WL_CONNECTED) {
@@ -163,12 +179,12 @@ void wifiTask() {
 
 //ok
 String read_string(int add) {
-  char data[100];
+  char data[200];
   int len = 0;
   unsigned char k;
 
   k = EEPROM.read(add);
-  while (k != '\0' && len < 110) {
+  while (k != '\0' && len < 210) {
     k = EEPROM.read(add + len);
     data[len] = k;
     len++;
@@ -195,13 +211,14 @@ String getValue(String data, char separa, int index) {
 
 void sendFirebase(){
   //temperatura
-  String macAdress = WiFi.macAddress()+"/";
-  Firebase.setString(firebaseData,bd + macAdress + "nome", WiFi.macAddress());
-  Firebase.setFloat(firebaseData,bd + macAdress + "distancia_alarme", 15 );
-  Firebase.setFloat(firebaseData,bd + macAdress + "distancia_alerta", 30 );
-  Firebase.setBool(firebaseData,bd + macAdress + "ligado", true);
-  Firebase.setString(firebaseData,bd + macAdress + "local", "local novo" );
-  Firebase.setString(firebaseData,bd + macAdress + "user_id", "user_id novo" );
+  //Firebase.setString(firebaseData,bd + WiFi.macAddress()+"/" + "macAddress", WiFi.macAddress());
+  //Firebase.setFloat(firebaseData,bd + WiFi.macAddress()+"/" + "distancia_alerta", 30 );
+  Firebase.setBool(firebaseData,bd + WiFi.macAddress()+"/" + "ligado", true);
+  Firebase.setString(firebaseData,bd + WiFi.macAddress()+"/" + "rede", getValue(receivedData, ',' , 0).c_str());
+  Firebase.setString(firebaseData,bd + WiFi.macAddress()+"/" + "dispositivoid", getValue(receivedData, ',' , 2).c_str());
+  Firebase.setString(firebaseData,bd + WiFi.macAddress()+"/" + "nome", getValue(receivedData, ',' , 3).c_str());
+  Firebase.setString(firebaseData,bd + WiFi.macAddress()+"/" + "local", getValue(receivedData, ',' , 4).c_str() );
+  Firebase.setFloat(firebaseData,bd + WiFi.macAddress()+"/" + "distancia", getValue(receivedData, ',' , 5).toFloat());
 }
 
 
