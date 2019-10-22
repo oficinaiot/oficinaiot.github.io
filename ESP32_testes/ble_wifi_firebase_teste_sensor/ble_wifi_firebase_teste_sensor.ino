@@ -1,20 +1,18 @@
 #include "EEPROM.h"
 #include <WiFi.h>
 #include <BLEDevice.h>
-#include <BLEServer.h>
-#include <BLEUtils.h>
+//#include <BLEServer.h>
+//#include <BLEUtils.h>
 #include <BLE2902.h>
 #include <FirebaseESP32.h>
-#include "time.h"
-#include <Ultrasonic.h>
 
 #define EEPROM_SIZE 128
-#define SERVICE_UUID        "87b34f52-4765-4d3a-b902-547751632d72"
-#define CHARACTERISTIC_UUID "a97d209a-b1d6-4edf-b67f-6a0c25fa42c9"
-#define TARGET_DEVICE_NAME "AdestraKit"
+const PROGMEM char SERVICE_UUID[] = "87b34f52-4765-4d3a-b902-547751632d72";
+const PROGMEM char CHARACTERISTIC_UUID[] = "a97d209a-b1d6-4edf-b67f-6a0c25fa42c9";
+const PROGMEM char TARGET_DEVICE_NAME[] = "AdestraKit";
 
-#define Host "https://adestrakit.firebaseio.com/"
-#define Senha_Fire "8ZMdyCFrQ9KRMFPJOuVkRrNRtdAcCB9BKDy6UIRx"
+const PROGMEM char Host[] = "https://adestrakit.firebaseio.com/";
+const PROGMEM char Senha_Fire[] = "8ZMdyCFrQ9KRMFPJOuVkRrNRtdAcCB9BKDy6UIRx";
 
 BLEServer* pServer = NULL;
 BLECharacteristic* pCharacteristic = NULL;
@@ -25,32 +23,13 @@ bool oldDeviceConnected = false;
 #define ledWifi 4 //verde
 const int modeAddr = 0;
 const int wifiAddr = 10;
-
-//frequencia do som do buzzer
-int channel = 0;
-int frequence = 2000;
-int resolution = 10;
-
-//chama uma função no servidor de horário.
-const char* ntpServer = "pool.ntp.org";
-const long  gmtOffset_sec = 0;
-
-#define pino_echo 27
-#define pino_buzzer 5
-#define pino_trigger 2
+String receivedData;
 
 int modeIdx;
-//quantidade de vezes que entrou no local.
-int qtdEntradaLocal;
-//váriavel que receberá a distância vinda do usuário (aqui fixada com valor para teste).
-float distancia = 50.0;
-
-//Inicializa o sensor nos pinos definidos acima
-Ultrasonic ultrasonic(pino_trigger, pino_echo);
 
 //Define FirebaseESP32 data object
 FirebaseData firebaseData;
-const String bd = "configEsp/";
+const PROGMEM char bd[] = "configEsp/";
 
 class MyServerCallbacks: public BLEServerCallbacks {
     void onConnect(BLEServer* pServer) {
@@ -66,9 +45,14 @@ class MyCallbacks: public BLECharacteristicCallbacks {
     void onWrite(BLECharacteristic *pCharacteristic) {
       std::string value = pCharacteristic->getValue();
 
+      //recebimento do ble
+      //var wifidata = rede+","+senhaenviada+","+dispositivoid+","+nome+","+local+","+distancia;
+      //wifidata = rede,senhaenviada,dispositivoid,nome,local,distancia
+      //wifidata[0] = rede
+      
       if (value.length() > 0) {
-        Serial.print("Value Callback: ");
-        //Serial.println(value.c_str());
+        Serial.print(F("Value Callback: "));
+        Serial.println(F(value.c_str()));
         writeString(wifiAddr, value.c_str());
       }
     }
@@ -83,15 +67,7 @@ class MyCallbacks: public BLECharacteristicCallbacks {
 };
 
 void setup() {
-
-    Serial.begin(115200);    
-  pinMode(pino_echo, INPUT);
-  pinMode(pino_trigger, OUTPUT);
-  //pinMode(pino_led_verde, OUTPUT); //WiFi
-  //pinMode(pino_led_azul, OUTPUT);//bluetooth
-  //pinMode(pino_led_branco, OUTPUT);//sinal sonoro
-  qtdEntradaLocal = 0;
-  //Serial.begin(115200);
+  Serial.begin(115200);
   pinMode(ledBle, OUTPUT);
   pinMode(ledWifi, OUTPUT);
 
@@ -99,8 +75,8 @@ void setup() {
     delay(1000);
   }
   modeIdx = EEPROM.read(modeAddr);
-  Serial.print("modeIdx: ");
-  Serial.println(modeIdx);
+  Serial.print(F("modeIdx: "));
+  Serial.println(F(modeIdx));
 
   EEPROM.write(modeAddr, modeIdx != 0 ? 0 : 1 );
   EEPROM.commit();
@@ -109,13 +85,13 @@ void setup() {
     //BLE Mode, azul
     digitalWrite(ledBle, false);//liga no false
     digitalWrite(ledWifi, true);
-    Serial.println("BLE MODE");
+    Serial.println(F("BLE MODE"));
     bleTask();
   } else {
     //Wifi mode, verde
     digitalWrite(ledWifi, false);//liga no false
     digitalWrite(ledBle, true);
-    Serial.println("WIFI MODE");
+    Serial.println(F("WIFI MODE"));
     wifiTask();
   }
 }
@@ -155,31 +131,41 @@ void bleTask() {
   pAdvertising->setScanResponse(false);
   pAdvertising->setMinPreferred(0x0);  // set value to 0x00 to not advertise this parameter
   BLEDevice::startAdvertising();
-  Serial.println("Waiting a client connection to notify...");
+  Serial.println(F("Aguardando uma conexão Ble..."));
 }
 
 void wifiTask() {
-  String receivedData;
-  receivedData = read_string(wifiAddr);
+   
+  //comentando para fazer testes com as novas variáveis até que o código esteja recebendo informações do app
+  //String receivedData;
+  //receivedData = read_string(wifiAddr);
 
+  receivedData = "AroldoGisele,Ar01d0&Gi5373,dispositivoid,nome,local,15";
   if (receivedData.length() > 0 ) {
-    String wifiName = getValue(receivedData, ',' , 0);
-    String  wifiPassword = getValue(receivedData, ' ' , 1);
+    
+    //tentando usar direto a variável para tentar diminuir o tamanho do sketch
+    //String wifiName = getValue(receivedData, ',' , 0);
+    //String  wifiPassword = getValue(receivedData, ',' , 1);
 
-    if (wifiName.length() > 0 && wifiPassword.length() > 0) {
-     
-      WiFi.begin(wifiName.c_str(), wifiPassword.c_str());
-      Serial.print("Conectando na rede Wifi: ");
-      Serial.println(wifiName);
-      Serial.println("Senha da Rede Wifi: Oculta");
+    //if (wifiName.length() > 0 && wifiPassword.length() > 0) {
+      if (getValue(receivedData, ',' , 0).length() > 0 && getValue(receivedData, ',' , 1).length() > 0) {
+//      atenção aqui
+      //WiFi.begin(wifiName.c_str(), wifiPassword.c_str());
+      WiFi.begin(getValue(receivedData, ',' , 0).c_str(),getValue(receivedData, ',' , 1).c_str());
+      
+      Serial.print(F("Conectando na rede Wifi: "));
+      //Serial.println(wifiName);
+      //Serial.println(WiFi.begin(wifiName.c_str());
+      Serial.println(F(getValue(receivedData, ',' , 0).c_str()));
+      Serial.println(F("Senha da Rede Wifi: Oculta"));
 
       while (WiFi.status() != WL_CONNECTED) {
         delay(500);
-        Serial.print(".");
+        Serial.print(F("."));
       }
       
       Serial.println();
-      Serial.print("WiFi conectada com IP:");
+      Serial.print(F("WiFi conectada com IP:"));
       Serial.println(WiFi.localIP());
       Serial.println();
     }
@@ -193,12 +179,12 @@ void wifiTask() {
 
 //ok
 String read_string(int add) {
-  char data[100];
+  char data[200];
   int len = 0;
   unsigned char k;
 
   k = EEPROM.read(add);
-  while (k != '\0' && len < 110) {
+  while (k != '\0' && len < 210) {
     k = EEPROM.read(add + len);
     data[len] = k;
     len++;
@@ -225,57 +211,42 @@ String getValue(String data, char separa, int index) {
 
 void sendFirebase(){
   //temperatura
-  String macAdress = WiFi.macAddress()+"/";
-  Firebase.setString(firebaseData,bd + macAdress + "nome", WiFi.macAddress());
-  Firebase.setFloat(firebaseData,bd + macAdress + "distancia_alarme", 15 );
-  Firebase.setFloat(firebaseData,bd + macAdress + "distancia_alerta", 30 );
-  Firebase.setBool(firebaseData,bd + macAdress + "ligado", true);
-  Firebase.setString(firebaseData,bd + macAdress + "local", "local novo" );
-  Firebase.setString(firebaseData,bd + macAdress + "user_id", "user_id novo" );
+  //Firebase.setString(firebaseData,bd + WiFi.macAddress()+"/" + "macAddress", WiFi.macAddress());
+  //Firebase.setFloat(firebaseData,bd + WiFi.macAddress()+"/" + "distancia_alerta", 30 );
+  Firebase.setBool(firebaseData,bd + WiFi.macAddress()+"/" + "ligado", true);
+  Firebase.setString(firebaseData,bd + WiFi.macAddress()+"/" + "rede", getValue(receivedData, ',' , 0).c_str());
+  Firebase.setString(firebaseData,bd + WiFi.macAddress()+"/" + "dispositivoid", getValue(receivedData, ',' , 2).c_str());
+  Firebase.setString(firebaseData,bd + WiFi.macAddress()+"/" + "nome", getValue(receivedData, ',' , 3).c_str());
+  Firebase.setString(firebaseData,bd + WiFi.macAddress()+"/" + "local", getValue(receivedData, ',' , 4).c_str() );
+  Firebase.setFloat(firebaseData,bd + WiFi.macAddress()+"/" + "distancia", getValue(receivedData, ',' , 5).toFloat());
 }
 
-
-//imprime o horário do servidor.
-void printLocalTime(){
-  struct tm timeinfo;
-  if(!getLocalTime(&timeinfo)){
-    Serial.println("Falha ao obter a hora");
-    return;
-  }
- Serial.println(&timeinfo, "%A, %B %d %Y %H:%M:%S");
-}
 
 
 void loop() {
-    
-    //Le as informacoes do sensor, em cm e pol
-    float cmMsec, inMsec;
-    long microsec = ultrasonic.timing();
-    cmMsec = ultrasonic.convert(microsec, Ultrasonic::CM);
-    inMsec = ultrasonic.convert(microsec, Ultrasonic::IN);
-  
-    //Exibe informacoes no serial monitor
-    Serial.print("Distancia em cm: ");
-    Serial.print(cmMsec);
-    Serial.print(" - Distancia em polegadas: ");
-    Serial.println(inMsec);
-    Serial.print(" ");
-  
-    //Será colocado uma variável que será fornecida pela usuário
-    if (cmMsec <= distancia){
-          
-      qtdEntradaLocal++;
-      Serial.printf("Entrou no local:%d" , qtdEntradaLocal);
-      Serial.println("Na data e horário: ");
-      printLocalTime();
-            
-      digitalWrite(pino_led_branco, HIGH);   
-      delay(3000);
-      ledcWriteTone(channel,650);//frequencia 
-      
-    }else{
-      digitalWrite(pino_led_branco, LOW);
-      ledcWriteTone(channel,0);
-    }
-    delay(1000);
-  }
+  // put your main code here, to run repeatedly:
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+}
