@@ -1,26 +1,27 @@
-#include "\Arduino.h"
 #include "EEPROM.h"
-#include <BLEDevice.h>
-#include <BLEServer.h>
-#include <BLEUtils.h>
-#include <BLE2902.h>
 #include <WiFi.h>
+//#include <BLEDevice.h>
+//#include <BLEServer.h>
+//#include <BLEUtils.h>
+//#include <BLE2902.h>
 #include <FirebaseESP32.h>
 #include <Ultrasonic.h>
+#include "time.h"
 
 #define EEPROM_SIZE 128
+/*
 #define SERVICE_UUID        "87b34f52-4765-4d3a-b902-547751632d72"
 #define CHARACTERISTIC_UUID "a97d209a-b1d6-4edf-b67f-6a0c25fa42c9"
 #define TARGET_DEVICE_NAME "AdestraKit"
-
+*/
 #define Host "https://adestrakit.firebaseio.com/"
 #define Senha_Fire "8ZMdyCFrQ9KRMFPJOuVkRrNRtdAcCB9BKDy6UIRx"
-
+/*
 BLEServer* pServer = NULL;
 BLECharacteristic* pCharacteristic = NULL;
 bool deviceConnected = false;
 bool oldDeviceConnected = false;
-
+*/
 #define ledBle 2 //azul
 #define ledWifi 4 //verde
 #define ledInvasao 12 //vermelho ou branco no dispositivo final
@@ -45,14 +46,25 @@ Ultrasonic sensorCentro(PIN_TRIG_CENTRO, PIN_ECHO_CENTRO);  // An ultrasonic sen
 //Ultrasonic sensorDireito(PIN_TRIG_DIR,PIN_ECHO_DIR);   // An ultrasonic sensor PING)))
 //Ultrasonic sendorEsquerdo(PIN_TRIG_ESQ,PIN_ECHO_ESQ);    // An Seeed Studio ultrasonic sensor
 
-//deixando multitarefa
-unsigned int pingSpeed = 1000;
-unsigned long pingTimer;
-
 #define CHANELL    0
 #define FREQUENCE  200
 #define RESOLUTION 10
 #define BUZZER_PIN 22
+
+//deixando multitarefa
+unsigned int pingSpeed = 1000;//tempo de delay
+unsigned long pingTimer;
+
+unsigned int qtdEntradaLocal;
+int distancia = 50; //virá do app o valor.
+
+//chama uma função no servidor de horário.
+const char* ntpServer = "pool.ntp.org";
+const long  gmtOffset_sec = 0;
+
+//regula o fuso horário.
+const int   daylightOffset_sec = -3600*3;
+
 /*
 NewPing sonar[SONAR_NUM] = {   // Sensor object array.
   //NewPing(PIN_TRIG_DIR, PIN_ECHO_DIR, MAX_DISTANCE), // Each sensor's trigger pin, echo pin, and max distance to ping. 
@@ -65,7 +77,8 @@ NewPing sonar[SONAR_NUM] = {   // Sensor object array.
 //Define FirebaseESP32 data object
 FirebaseData firebaseData;
 const String bd = "configEsp/";
-
+const String alarme = "disparoAlarme/";
+/*
 class MyServerCallbacks: public BLEServerCallbacks {
     void onConnect(BLEServer* pServer) {
       deviceConnected = true;
@@ -77,10 +90,8 @@ class MyServerCallbacks: public BLEServerCallbacks {
 };
 
 class MyCallbacks: public BLECharacteristicCallbacks {
-
     void onWrite(BLECharacteristic *pCharacteristic) {
       std::string value = pCharacteristic->getValue();
-        Serial.print("Value Callback: ");
 
       //recebimento do ble
       //var wifidata = rede+","+senhaenviada+","+dispositivoid+","+nome+","+local+","+distancia;
@@ -102,7 +113,7 @@ class MyCallbacks: public BLECharacteristicCallbacks {
       EEPROM.commit();
     }
 };
-
+*/
 void setup() {
   Serial.begin(115200);
   pinMode(ledBle, OUTPUT);
@@ -118,7 +129,6 @@ void setup() {
 
   if (!EEPROM.begin(EEPROM_SIZE)) {
     delay(1000);
-    Serial.println("Erro Epron");
   }
   modeIdx = EEPROM.read(modeAddr);
   Serial.print("modeIdx: ");
@@ -131,6 +141,8 @@ void setup() {
     bleTask();
   } else {
     wifiTask();
+    configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
+    printLocalTime();
   }
 }
 
@@ -140,7 +152,7 @@ void bleTask() {
     digitalWrite(ledBle, false);//liga o ledo do bluetooth
     digitalWrite(ledWifi, true);//desliga o led do wifi
     Serial.println("BLE MODE");
-  
+/*  
   // Create the BLE Device
   BLEDevice::init("ESP32 AdestraKit");
 
@@ -175,6 +187,7 @@ void bleTask() {
   pAdvertising->setMinPreferred(0x0);  // set value to 0x00 to not advertise this parameter
   BLEDevice::startAdvertising();
   Serial.println("Aguardando uma conexão Ble...");
+  */
 }
 
 void wifiTask() {
@@ -270,6 +283,15 @@ void sendFirebase(){
 }
 
 
+//imprime o horário do servidor.
+void printLocalTime(){
+  struct tm timeinfo;
+  if(!getLocalTime(&timeinfo)){
+    Serial.println("Falha ao obter a hora");
+    return;
+  }
+ Serial.println(&timeinfo, "%A, %B %d %Y %H:%M:%S");
+}
 
 void loop() {
   //assim o processador fica livre para outras tarefas substitui o delay mais eficiente
@@ -278,7 +300,7 @@ void loop() {
     Serial.print(F("Sensor centro: "));
     Serial.print(sensorCentro.read(CM)); // a distância default é em cm
     Serial.println(F("cm"));
-
+    printLocalTime();
 
 
     }
