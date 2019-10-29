@@ -1,4 +1,4 @@
-#include "\Arduino.h"
+#include "Arduino.h"
 #include "EEPROM.h"
 #include <BLEDevice.h>
 #include <BLEServer.h>
@@ -21,38 +21,38 @@ BLECharacteristic* pCharacteristic = NULL;
 bool deviceConnected = false;
 bool oldDeviceConnected = false;
 
+//pinos em uso
+#define PIN_TRIG_CENTRO 32  //amarelo - envia
+#define PIN_ECHO_CENTRO 35  //verde - recebe
 #define ledBle 2 //azul
 #define ledWifi 4 //verde
 #define ledInvasao 12 //vermelho ou branco no dispositivo final
+
+//variáveis globais
 const int modeAddr = 0;
 int modeIdx;
 const int wifiAddr = 10;
 String receivedData;
+unsigned int pingSpeed = 1500;//substirui o delay para a busca de dados e mantem as outras atividades funcionando
+unsigned long pingTimer;
+Ultrasonic sensorCentro(PIN_TRIG_CENTRO, PIN_ECHO_CENTRO);
+
+//configurando o buzzer
+#define CHANELL    0
+#define FREQUENCE  200
+#define RESOLUTION 10
+#define BUZZER_PIN 22
 
 //criando o sonar
 //#define SONAR_NUM 1      // Number of sensors.
 //#define MAX_DISTANCE 500 // Maximum distance (in cm) to ping.
 //usando este para os testes unitários
-#define PIN_TRIG_CENTRO 32  //amarelo - envia
-#define PIN_ECHO_CENTRO 35  //verde - recebe
 //#define PIN_TRIG_DIR   //amarelo
 //#define PIN_ECHO_DIR   //verde
 //#define PIN_TRIG_ESQ   //amarelo
 //#define PIN_ECHO_ESQ   //verde
-
-
-Ultrasonic sensorCentro(PIN_TRIG_CENTRO, PIN_ECHO_CENTRO);  // An ultrasonic sensor HC-04
-//Ultrasonic sensorDireito(PIN_TRIG_DIR,PIN_ECHO_DIR);   // An ultrasonic sensor PING)))
-//Ultrasonic sendorEsquerdo(PIN_TRIG_ESQ,PIN_ECHO_ESQ);    // An Seeed Studio ultrasonic sensor
-
-//deixando multitarefa
-unsigned int pingSpeed = 1000;
-unsigned long pingTimer;
-
-#define CHANELL    0
-#define FREQUENCE  200
-#define RESOLUTION 10
-#define BUZZER_PIN 22
+//Ultrasonic sensorDireito(PIN_TRIG_DIR,PIN_ECHO_DIR);
+//Ultrasonic sendorEsquerdo(PIN_TRIG_ESQ,PIN_ECHO_ESQ);
 /*
 NewPing sonar[SONAR_NUM] = {   // Sensor object array.
   //NewPing(PIN_TRIG_DIR, PIN_ECHO_DIR, MAX_DISTANCE), // Each sensor's trigger pin, echo pin, and max distance to ping. 
