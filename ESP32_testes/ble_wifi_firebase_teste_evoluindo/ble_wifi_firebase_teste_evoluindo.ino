@@ -182,9 +182,9 @@ void wifiTask() {
   Serial.println("WIFI MODE");
   //comentando para fazer testes com as novas variáveis até que o código esteja recebendo informações do app
   //String receivedData;
-  //receivedData = read_string(wifiAddr);
+  receivedData = read_string(wifiAddr);
 
-  receivedData = "AroldoGisele,Ar01d0&Gi5373,dispositivoid,nome,local,15";
+  //receivedData = "rede,senha,dispositivoid,nome,local,15";
   if (receivedData.length() > 0 ) {
     
     //tentando usar direto a variável para tentar diminuir o tamanho do sketch
@@ -238,6 +238,7 @@ String read_string(int add) {
     len++;
   }
   data[len] = '\0';
+  Serial.println(data);
   return String(data);
 }
 
@@ -273,6 +274,8 @@ void sendFirebase(){
 
 void loop() {
   //assim o processador fica livre para outras tarefas substitui o delay mais eficiente
+  
+  /*
   if (millis() >= pingTimer){
     pingTimer += pingSpeed;
     Serial.print(F("Sensor centro: "));
@@ -282,6 +285,7 @@ void loop() {
 
 
     }
+    */
   /*
   // put your main code here, to run repeatedly:
   for (uint8_t i = 0; i < SONAR_NUM; i++) { // Loop through each sensor and display results.
