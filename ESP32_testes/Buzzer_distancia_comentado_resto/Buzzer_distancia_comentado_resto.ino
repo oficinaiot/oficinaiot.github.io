@@ -1,4 +1,6 @@
 #include "Arduino.h"
+#include <Ultrasonic.h>
+/*
 #include "EEPROM.h"
 #include <BLEDevice.h>
 #include <BLEServer.h>
@@ -6,7 +8,7 @@
 #include <BLE2902.h>
 #include <WiFi.h>
 #include <FirebaseESP32.h>
-#include <Ultrasonic.h>
+
 
 #define EEPROM_SIZE 128
 #define SERVICE_UUID        "87b34f52-4765-4d3a-b902-547751632d72"
@@ -20,7 +22,7 @@ BLEServer* pServer = NULL;
 BLECharacteristic* pCharacteristic = NULL;
 bool deviceConnected = false;
 bool oldDeviceConnected = false;
-
+*/
 //pinos em uso
 #define PIN_TRIG_CENTRO 32  //amarelo - envia
 #define PIN_ECHO_CENTRO 35  //verde - recebe
@@ -29,19 +31,23 @@ bool oldDeviceConnected = false;
 #define ledInvasao 16 //vermelho ou branco no dispositivo final
 #define BUZZER_PIN 33//pino do buzzer
 
+/*
 //variáveis globais
 const int modeAddr = 0;
 int modeIdx;
 const int wifiAddr = 10;
 String receivedData;
+*/
 unsigned int pingSpeed = 1500;//substirui o delay para a busca de dados e mantem as outras atividades funcionando
 unsigned long pingTimer;
 Ultrasonic sensorCentro(PIN_TRIG_CENTRO, PIN_ECHO_CENTRO);
 unsigned int distanciaLimite = 50;
 
+
+
 //configurando o buzzer
 #define CHANELL    0
-#define FREQUENCE  200
+#define FREQUENCE 20000
 #define RESOLUTION 10
 
 
@@ -63,7 +69,7 @@ NewPing sonar[SONAR_NUM] = {   // Sensor object array.
 };
 */
 
-
+/*
 //Define FirebaseESP32 data object
 FirebaseData firebaseData;
 const String bd = "configEsp/";
@@ -104,7 +110,7 @@ class MyCallbacks: public BLECharacteristicCallbacks {
       EEPROM.commit();
     }
 };
-
+*/
 void setup() {
   Serial.begin(115200);
   pinMode(ledBle, OUTPUT);
@@ -114,13 +120,14 @@ void setup() {
   pinMode(PIN_TRIG_CENTRO, OUTPUT);
   pinMode(PIN_ECHO_CENTRO, INPUT);
 
-  //colocando o sensor - sonar
+  //Colocando o Buzzer
   ledcSetup(CHANELL, FREQUENCE, RESOLUTION);
   ledcAttachPin(BUZZER_PIN, CHANELL);
 
   //definindo para deixar não usar com o delay
   pingTimer = millis();
 
+/*
   if (!EEPROM.begin(EEPROM_SIZE)) {
     delay(1000);
     Serial.println("Erro Epron");
@@ -137,9 +144,10 @@ void setup() {
   } else {
     wifiTask();
   }
+  */
 }
 
-
+/*
 void bleTask() {
     //BLE Mode, azul
     digitalWrite(ledBle, false);//liga o ledo do bluetooth
@@ -277,6 +285,7 @@ void sendFirebase(){
 
 
 void sendAlarme(int distancia){
+  //temperatura
   //Firebase.setString(firebaseData,bd + WiFi.macAddress()+"/" + "macAddress", WiFi.macAddress());
   //Firebase.setFloat(firebaseData,bd + WiFi.macAddress()+"/" + "distancia_alerta", 30 );
   Firebase.setBool(firebaseData,bd + WiFi.macAddress()+"/" + "ligado", true);
@@ -287,10 +296,8 @@ void sendAlarme(int distancia){
   Firebase.setFloat(firebaseData,bd + WiFi.macAddress()+"/" + "distancia", getValue(receivedData, ',' , 5).toFloat());
 }
 
-
+*/
 void loop() {
-  //assim o processador fica livre para outras tarefas substitui o delay mais eficiente
-
   //assim o processador fica livre para outras tarefas substitui o delay mais eficiente
 
   if (millis() >= pingTimer){

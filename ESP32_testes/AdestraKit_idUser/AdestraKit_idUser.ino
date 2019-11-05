@@ -66,7 +66,9 @@ NewPing sonar[SONAR_NUM] = {   // Sensor object array.
 
 //Define FirebaseESP32 data object
 FirebaseData firebaseData;
-const String bd = "configEsp/";
+const String bdConfigEsp = "configEsp/";
+const String bdDispositivosUser = "dispositivosUser/";
+const String bdAlarmes = "alarmes/";
 
 class MyServerCallbacks: public BLEServerCallbacks {
     void onConnect(BLEServer* pServer) {
@@ -85,9 +87,16 @@ class MyCallbacks: public BLECharacteristicCallbacks {
         Serial.print("Value Callback: ");
 
       //recebimento do ble
+      //AroldoGisele,Ar01d0&Gi5373,12345678,Aroldo sala,Sala,45,Bl9gZlathLdzZajuCXKFAPqWjm03
       //var wifidata = rede+","+senhaenviada+","+dispositivoid+","+nome+","+local+","+distancia;
-      //wifidata = rede,senhaenviada,dispositivoid,nome,local,distancia
-      //wifidata[0] = rede
+      //wifidata = redeWifi,senhaWifi,dispositivoid,nomeAdestra,localAdestra,distanciaLimite,userIdFirebase
+      //wifidata[0] = redeWifi,
+      //wifidata[1] = senhaWifi
+      //wifidata[2] = senhaCompartilhamento,
+      //wifidata[3] = nomeAdestra,
+      //wifidata[4] = localAdestra,
+      //wifidata[5] = distanciaLimite,
+      //wifidata[6] = userIdFirebase
       
       if (value.length() > 0) {
         Serial.print("Value Callback: ");
@@ -265,30 +274,60 @@ String getValue(String data, char separa, int index) {
 
 void sendFirebase(){
   //temperatura
-  //Firebase.setString(firebaseData,bd + WiFi.macAddress()+"/" + "macAddress", WiFi.macAddress());
-  //Firebase.setFloat(firebaseData,bd + WiFi.macAddress()+"/" + "distancia_alerta", 30 );
-  Firebase.setBool(firebaseData,bd + WiFi.macAddress()+"/" + "ligado", true);
-  Firebase.setString(firebaseData,bd + WiFi.macAddress()+"/" + "rede", getValue(receivedData, ',' , 0).c_str());
-  Firebase.setString(firebaseData,bd + WiFi.macAddress()+"/" + "dispositivoid", getValue(receivedData, ',' , 2).c_str());
-  Firebase.setString(firebaseData,bd + WiFi.macAddress()+"/" + "nome", getValue(receivedData, ',' , 3).c_str());
-  Firebase.setString(firebaseData,bd + WiFi.macAddress()+"/" + "local", getValue(receivedData, ',' , 4).c_str() );
-  Firebase.setFloat(firebaseData,bd + WiFi.macAddress()+"/" + "distancia", getValue(receivedData, ',' , 5).toFloat());
-}
+  //Firebase.setString(firebaseData,bdConfigEsp + WiFi.macAddress()+"/" + "macAddress", WiFi.macAddress());
+  //Firebase.setFloat(firebaseData,bdConfigEsp + WiFi.macAddress()+"/" + "distancia_alerta", 30 );
 
+ //wifidata[0] = redeWifi,
+      //wifidata[1] = senhaWifi
+      //wifidata[2] = senhaCompartilhamento,
+      //wifidata[3] = nomeAdestra,
+      //wifidata[4] = localAdestra,
+      //wifidata[5] = distanciaLimite,
+      //wifidata[6] = userIdFirebase
+for (int i = 0 ; i < 20 ; i++){
+  String val = ""+i;
+  Firebase.setBool(firebaseData,bdConfigEsp + WiFi.macAddress()+val+"/" + "ligado", true);
+  Firebase.setString(firebaseData,bdConfigEsp + WiFi.macAddress()+val+"/" + "redeWifi", getValue(receivedData, ',' , 0).c_str());
+  Firebase.setString(firebaseData,bdConfigEsp + WiFi.macAddress()+val+"/" + "senhaCompartilhamento", getValue(receivedData, ',' , 2).c_str());
+  Firebase.setString(firebaseData,bdConfigEsp + WiFi.macAddress()+val+"/" + "nomeAdestra", getValue(receivedData, ',' , 3).c_str());
+  Firebase.setString(firebaseData,bdConfigEsp + WiFi.macAddress()+val+"/" + "localAdestra", getValue(receivedData, ',' , 4).c_str() );
+  Firebase.setFloat(firebaseData,bdConfigEsp + WiFi.macAddress()+val+"/" + "distanciaLimite", getValue(receivedData, ',' , 5).toFloat());
+  Firebase.setString(firebaseData,bdConfigEsp + WiFi.macAddress()+val+"/" + "userIdFirebase", getValue(receivedData, ',' , 6).c_str() );
+
+  //bdDispositivosUser
+  Firebase.setString(firebaseData,bdDispositivosUser + getValue(receivedData, ',' , 6).c_str() + "/" + "dispositivoId", WiFi.macAddress()+i);
+
+  //Firebase.setString(firebaseData,bdDispositivosUser + WiFi.macAddress()+"/" + "userIdFirebase", getValue(receivedData, ',' , 6).c_str() );
+  
+  //jeito2
+  Firebase.setBool(firebaseData,bdConfigEsp + getValue(receivedData, ',' , 6).c_str() +  "/" + WiFi.macAddress()+val+ "/" + "ligado", true);
+  Firebase.setString(firebaseData,bdConfigEsp + getValue(receivedData, ',' , 6).c_str() +  "/" + WiFi.macAddress()+val+ "/" + "redeWifi", getValue(receivedData, ',' , 0).c_str());
+  Firebase.setString(firebaseData,bdConfigEsp + getValue(receivedData, ',' , 6).c_str() +  "/" + WiFi.macAddress()+val+ "/" + "senhaCompartilhamento", getValue(receivedData, ',' , 2).c_str());
+  Firebase.setString(firebaseData,bdConfigEsp + getValue(receivedData, ',' , 6).c_str() +  "/" + WiFi.macAddress()+val+ "/" + "nomeAdestra", getValue(receivedData, ',' , 3).c_str());
+  Firebase.setString(firebaseData,bdConfigEsp + getValue(receivedData, ',' , 6).c_str() +  "/" + WiFi.macAddress()+val+ "/" + "localAdestra", getValue(receivedData, ',' , 4).c_str() );
+  Firebase.setFloat(firebaseData,bdConfigEsp + getValue(receivedData, ',' , 6).c_str() +  "/" + WiFi.macAddress()+val+ "/" + "distanciaLimite", getValue(receivedData, ',' , 5).toFloat());
+  //Firebase.setString(firebaseData,bdConfigEsp + getValue(receivedData, ',' , 6).c_str() + WiFi.macAddress()+ "/" + "uderId", getValue(receivedData, ',' , 6).c_str() );
+}
+}
+//MPhZCXF8mnUlUvcUHp30Msupnd53 - Elaine id
 
 void sendAlarme(int distancia){
-  //Firebase.setString(firebaseData,bd + WiFi.macAddress()+"/" + "macAddress", WiFi.macAddress());
-  //Firebase.setFloat(firebaseData,bd + WiFi.macAddress()+"/" + "distancia_alerta", 30 );
-  Firebase.setBool(firebaseData,bd + WiFi.macAddress()+"/" + "ligado", true);
-  Firebase.setString(firebaseData,bd + WiFi.macAddress()+"/" + "rede", getValue(receivedData, ',' , 0).c_str());
-  Firebase.setString(firebaseData,bd + WiFi.macAddress()+"/" + "dispositivoid", getValue(receivedData, ',' , 2).c_str());
-  Firebase.setString(firebaseData,bd + WiFi.macAddress()+"/" + "nome", getValue(receivedData, ',' , 3).c_str());
-  Firebase.setString(firebaseData,bd + WiFi.macAddress()+"/" + "local", getValue(receivedData, ',' , 4).c_str() );
-  Firebase.setFloat(firebaseData,bd + WiFi.macAddress()+"/" + "distancia", getValue(receivedData, ',' , 5).toFloat());
+  //Firebase.setString(firebaseData,bdConfigEsp +"/" + WiFi.macAddress()+"/" + "macAddress", WiFi.macAddress().c_str());
+  //Firebase.setFloat(firebaseData,bdConfigEsp +"/" + WiFi.macAddress()+"/" + "distancia_alerta", 30 );
+  
+  Firebase.setBool(firebaseData,bdAlarmes +"/" + WiFi.macAddress()+"/" + "ligado", true);
+  Firebase.setString(firebaseData,bdAlarmes +"/" + WiFi.macAddress()+"/" + "rede", getValue(receivedData, ',' , 0).c_str());
+  Firebase.setString(firebaseData,bdAlarmes + "/" +WiFi.macAddress()+"/" + "dispositivoid", getValue(receivedData, ',' , 2).c_str());
+  Firebase.setString(firebaseData,bdAlarmes +"/" + WiFi.macAddress()+"/" + "nome", getValue(receivedData, ',' , 3).c_str());
+  Firebase.setString(firebaseData,bdAlarmes + "/" + WiFi.macAddress()+"/" + "local", getValue(receivedData, ',' , 4).c_str() );
+  Firebase.setFloat(firebaseData,bdAlarmes + "/" +WiFi.macAddress()+"/" + "distancia", getValue(receivedData, ',' , 5).toFloat());
 }
 
 
 void loop() {
+  //Value Callback: AroldoGisele,Ar01d0&Gi5373,12345678,Aroldo sala,Sala,45,Bl9gZlathLdzZajuCXKFAPqWjm03
+  
+  
   //assim o processador fica livre para outras tarefas substitui o delay mais eficiente
 
   //assim o processador fica livre para outras tarefas substitui o delay mais eficiente
