@@ -2,7 +2,6 @@
 #include <EEPROM.h>
 #include <BLEDevice.h>
 #include <BLEServer.h>
-//#include <BLEUtils.h>
 #include <BLE2902.h>
 #include <WiFi.h>
 #include <FirebaseESP32.h>
@@ -32,7 +31,7 @@
 #define senhaFirebase "8ZMdyCFrQ9KRMFPJOuVkRrNRtdAcCB9BKDy6UIRx"
 
 //variáveis globais
-unsigned int pingSpeed = 1500;  //delay para a busca de dados do sensor e mantem as outras atividades funcionando
+unsigned int pingSpeed = 1000;  //delay para a busca de dados do sensor e mantem as outras atividades funcionando
 const int modeAddr = 0;         //alternar o estado com o aperto do botao rst
 int modeIdx;                    //alternar o estado com o aperto do botao rst, recebe o conteúdo da modeAddr e usa para checar se entra no ble ou wifi 
 const int wifiAddr = 10;        //armazena o endereco onde fica a informacao dos dados da rede wifi, caso receba por ble armazena, senão toda vez que entra no modo wifi lê e usa os dados para acesso
@@ -80,7 +79,7 @@ class MyCallbacks: public BLECharacteristicCallbacks {
       //wifidata = redeWifi,senhaWifi,dispositivoid,nomeAdestra,localAdestra,distanciaLimite,userIdFirebase
       //wifidata[0] = redeWifi,
       //wifidata[1] = senhaWifi
-      //wifidata[2] = senhaCompartilhamento,
+      //wifidata[2] = senhaCompartilhamento, //não será usada para frente
       //wifidata[3] = nomeAdestra,
       //wifidata[4] = localAdestra,
       //wifidata[5] = distanciaLimite,
@@ -195,7 +194,6 @@ void wifiTask() {
       Serial.println("Senha da Rede Wifi: Oculta");
 
       while (WiFi.status() != WL_CONNECTED) {
-        
         digitalWrite(ledWifi, true);
         delay(300);        
         digitalWrite(ledWifi, false);//liga no false
@@ -255,22 +253,10 @@ String getValue(String data, char separa, int index) {
 void inicializaFirebase(){
   Firebase.setBool(firebaseData,bdConfigEsp   + getValue(configEspEprom, ',' , 6).c_str() +  "/" + WiFi.macAddress() + "/" + "ligado", true);
   Firebase.setString(firebaseData,bdConfigEsp + getValue(configEspEprom, ',' , 6).c_str() +  "/" + WiFi.macAddress() + "/" + "redeWifi", getValue(configEspEprom, ',' , 0).c_str());
-  Firebase.setString(firebaseData,bdConfigEsp + getValue(configEspEprom, ',' , 6).c_str() +  "/" + WiFi.macAddress() + "/" + "senhaCompartilhamento", getValue(configEspEprom, ',' , 2).c_str());
   Firebase.setString(firebaseData,bdConfigEsp + getValue(configEspEprom, ',' , 6).c_str() +  "/" + WiFi.macAddress() + "/" + "nomeAdestra", getValue(configEspEprom, ',' , 3).c_str());
   Firebase.setString(firebaseData,bdConfigEsp + getValue(configEspEprom, ',' , 6).c_str() +  "/" + WiFi.macAddress() + "/" + "localAdestra", getValue(configEspEprom, ',' , 4).c_str() );
   Firebase.setFloat(firebaseData,bdConfigEsp  + getValue(configEspEprom, ',' , 6).c_str()  +  "/" + WiFi.macAddress() + "/" + "distanciaLimite", getValue(configEspEprom, ',' , 5).toFloat());
-      //wifidata[0] = redeWifi,
-      //wifidata[1] = senhaWifi
-      //wifidata[2] = senhaCompartilhamento,
-      //wifidata[3] = nomeAdestra,
-      //wifidata[4] = localAdestra,
-      //wifidata[5] = distanciaLimite,
-      //wifidata[6] = userIdFirebase
 }
-//MPhZCXF8mnUlUvcUHp30Msupnd53 - Elaine id
-
-//StaticJsonBuffer<200> jsonBuffer;
-//JsonObject &root = jsonBuffer.createObject();
 
 String dataAtualFormatada()
 {
@@ -279,11 +265,8 @@ String dataAtualFormatada()
   if(!getLocalTime(&timeinfo)){
     return String("Erro ao obter a o horário");
   }
-  //Serial.println(&timeinfo, "%A, %B %d %Y %H:%M:%S");
-  //Serial.println(&timeinfo, "%d/%m/%Y %H:%M:%S");
-  //strftime(data_formatada, 64, "%d/%m/%Y %H:%M:%S", &timeinfo);//Cria uma String formatada da estrutura "data"
-  strftime(data_formatada, 64, "%Y/%m/%d %H:%M:%S", &timeinfo);//Cria uma String formatada da estrutura "data"
-  strftime(data_formatada, 64, "%Y/%m/%d %H:%M:%S", &timeinfo);//Cria uma String formatada da estrutura "data"
+  strftime(data_formatada, 64, "%d:%m:%Y %H:%M:%S", &timeinfo);//Cria uma String formatada da estrutura "data"
+  
   Serial.println();
   Serial.println(data_formatada);
   return data_formatada;
@@ -292,7 +275,11 @@ String dataAtualFormatada()
 
 void sendAlarme(int distMedida){
   String dataAtual = dataAtualFormatada();
-
+  Firebase.setInt(      firebaseData,bdAlarmes + WiFi.macAddress() + "/" + getValue(dataAtual, ' ' , 0).c_str() + "/" + getValue(dataAtual, ' ' , 1).c_str() + "/" + "distanciaAferida", distMedida);
+  Firebase.setString(   firebaseData,bdAlarmes + WiFi.macAddress() + "/" + getValue(dataAtual, ' ' , 0).c_str() + "/" + getValue(dataAtual, ' ' , 1).c_str() + "/" + "data", getValue(dataAtual, ' ' , 0).c_str());
+  Firebase.setString(   firebaseData,bdAlarmes + WiFi.macAddress() + "/" + getValue(dataAtual, ' ' , 0).c_str() + "/" + getValue(dataAtual, ' ' , 1).c_str() + "/" + "hora", getValue(dataAtual, ' ' , 1).c_str());
+/*
+ * caso queira enviar por json
   FirebaseJson json2;
   json2.set("distanciaAferida", distMedida);
   json2.set("data", getValue(dataAtual, ' ' , 0).c_str());
@@ -304,46 +291,8 @@ void sendAlarme(int distMedida){
   Firebase.setTimestamp(firebaseData,bdAlarmes + WiFi.macAddress() + "/" + idFirebase +"/timestamp" );
   Serial. println (idFirebase);
   Serial. println (firebaseData.dataPath()); 
-
-  //assim 
-  Firebase.setInt(      firebaseData,bdAlarmes + WiFi.macAddress() + "/" + getValue(dataAtual, ' ' , 0).c_str() + "/" + getValue(dataAtual, ' ' , 1).c_str() + "/" + "distanciaAferida", distMedida);
-  Firebase.setString(   firebaseData,bdAlarmes + WiFi.macAddress() + "/" + getValue(dataAtual, ' ' , 0).c_str() + "/" + getValue(dataAtual, ' ' , 1).c_str() + "/" + "data", getValue(dataAtual, ' ' , 0).c_str());
-  Firebase.setString(   firebaseData,bdAlarmes + WiFi.macAddress() + "/" + getValue(dataAtual, ' ' , 0).c_str() + "/" + getValue(dataAtual, ' ' , 1).c_str() + "/" + "hora", getValue(dataAtual, ' ' , 1).c_str());
-
-//assim 
-  Firebase.pushInt(      firebaseData,bdAlarmes + WiFi.macAddress() + "/" + getValue(dataAtual, ' ' , 0).c_str() + "/" + "distanciaAferida", distMedida);
-  Firebase.pushString(   firebaseData,bdAlarmes + WiFi.macAddress() + "/" + getValue(dataAtual, ' ' , 0).c_str() + "/" + "data", getValue(dataAtual, ' ' , 0).c_str());
-  Firebase.pushString(   firebaseData,bdAlarmes + WiFi.macAddress() + "/" + getValue(dataAtual, ' ' , 0).c_str() + "/" + "hora", getValue(dataAtual, ' ' , 1).c_str());
-
-  
-  
- //assim se usar o timestamp neste ponto apaga os valores acima
-  //Firebase.setTimestamp(firebaseData,bdAlarmes + WiFi.macAddress());
-  //Firebase.pushTimestamp(firebaseData,bdAlarmes + WiFi.macAddress());
-  //Firebase.pushInt( firebaseData,bdAlarmes + WiFi.macAddress() + "/" + dataAtual + "/" + "distanciaAferida", distMedida);
-  //Firebase.pushString(   firebaseData,bdAlarmes + WiFi.macAddress() + "/" + dataAtual + "/" + "data", getValue(dataAtual, ' ' , 0).c_str());
-  //Firebase.pushString(   firebaseData,bdAlarmes + WiFi.macAddress() + "/" + dataAtual + "/" + "hora", getValue(dataAtual, ' ' , 1).c_str());
- 
-  //assim 
-  //Firebase.pushString( firebaseData,bdAlarmes + WiFi.macAddress()+"/",jsonStr);
-  //Firebase.pushInt( firebaseData,bdAlarmes + "/" + WiFi.macAddress() + "/" + Firebase.pushTimestamp + "/" + "distanciaAferida", distMedida);
-  //Firebase.pushString(   firebaseData,bdAlarmes + "/" + WiFi.macAddress() + "/" + dataAtual + "/" + "data", getValue(dataAtual, ' ' , 0).c_str());
-  //Firebase.pushString(   firebaseData,bdAlarmes + "/" + WiFi.macAddress() + "/" + dataAtual + "/" + "hora", getValue(dataAtual, ' ' , 1).c_str());
-
-  //assim
-  /*
-  Firebase.pushtInt( firebaseData,bdAlarmes + "/" + WiFi.macAddress() + "/" + getValue(dataAtual, ' ' , 0).c_str() + "/" + "distanciaAferida", distMedida);
-  Firebase.pushString(   firebaseData,bdAlarmes + "/" + WiFi.macAddress() + "/" + dataAtual + "/" + "data", getValue(dataAtual, ' ' , 0).c_str());
-  Firebase.pushString(   firebaseData,bdAlarmes + "/" + WiFi.macAddress() + "/" + dataAtual + "/" + "hora", getValue(dataAtual, ' ' , 1).c_str());
-  */
- // Firebase.setString( firebaseData,bdAlarmes + "/" + WiFi.macAddress()+"/" + "nome", getValue(configEspEprom, ',' , 3).c_str());
- // Firebase.setString( firebaseData,bdAlarmes + "/" + WiFi.macAddress()+"/" + "local", getValue(configEspEprom, ',' , 4).c_str() );
- // Firebase.setFloat ( firebaseData,bdAlarmes + "/" + WiFi.macAddress()+"/" + "distancia", getValue(configEspEprom, ',' , 5).toFloat());
+*/
 }
-
-
-
-
 
 void loop() {
 
@@ -356,6 +305,7 @@ void loop() {
     Serial.println(F("cm"));
 
     if (distMedida <= distanciaLimite && distMedida > 0 ) {
+        pingTimer += pingSpeed * 4;
         //ligando o led branco    
         digitalWrite(ledInvasao, LOW);   
         //ligando o Buzzer
@@ -367,8 +317,6 @@ void loop() {
         digitalWrite(ledInvasao, HIGH);
         //desligando o buzzer
         ledcWriteTone(canal,0);
-        //ledcWrite(canal, 0);
     }
-    
     }
 }
