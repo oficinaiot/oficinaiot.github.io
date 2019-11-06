@@ -2,6 +2,7 @@
 #include <EEPROM.h>
 #include <BLEDevice.h>
 #include <BLEServer.h>
+//#include <BLEUtils.h>
 #include <BLE2902.h>
 #include <WiFi.h>
 #include <FirebaseESP32.h>
@@ -132,24 +133,23 @@ void setup() {
   }
 }
 
-
 void bleTask() {
     //BLE Mode, azul
-    digitalWrite(ledBle, false);//liga o ledo do bluetooth
+    digitalWrite(ledBle, false);//liga o led do bluetooth
     digitalWrite(ledWifi, true);//desliga o led do wifi
     Serial.println("BLE MODE");
   
-  // Create the BLE Device
+  //Cria o dispositivo BLE
   BLEDevice::init("ESP32 AdestraKit");
 
-  // Create the BLE Server
+  //Cria o servidor BLE
   pServer = BLEDevice::createServer();
   pServer->setCallbacks(new MyServerCallbacks());
 
-  // Create the BLE Service
+  //Cria o serviço do BLE
   BLEService *pService = pServer->createService(SERVICE_UUID);
 
-  // Create a BLE Characteristic
+  //Cria as caractertícas do BLE
   pCharacteristic = pService->createCharacteristic(
                       CHARACTERISTIC_UUID,
                       BLECharacteristic::PROPERTY_READ   |
@@ -159,18 +159,15 @@ void bleTask() {
                     );
 
   pCharacteristic->setCallbacks(new MyCallbacks());
-  // https://www.bluetooth.com/specifications/gatt/viewer?attributeXmlFile=org.bluetooth.descriptor.gatt.client_characteristic_configuration.xml
-  // Create a BLE Descriptor
   pCharacteristic->addDescriptor(new BLE2902());
 
-  // Start the service
+  //Incia o serviço
   pService->start();
 
-  // Start advertising
   BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
   pAdvertising->addServiceUUID(SERVICE_UUID);
   pAdvertising->setScanResponse(false);
-  pAdvertising->setMinPreferred(0x0);  // set value to 0x00 to not advertise this parameter
+  pAdvertising->setMinPreferred(0x0);
   BLEDevice::startAdvertising();
   Serial.println("Aguardando uma conexão Ble...");
 }
@@ -178,16 +175,14 @@ void bleTask() {
 void wifiTask() {
   digitalWrite(ledBle, true);//desliga o ledBle
   Serial.println("WIFI MODE");
-  
   configEspEprom = read_string(wifiAddr);
-
+  
   if (configEspEprom.length() > 0 ) {
       if (getValue(configEspEprom, ',' , 0).length() > 0 && getValue(configEspEprom, ',' , 1).length() > 0) {
 
       WiFi.begin(getValue(configEspEprom, ',' , 0).c_str(),getValue(configEspEprom, ',' , 1).c_str());
 
-      //para usar e emitir um aviso;
-      //wifidata[5] = distanciaLimite,
+      //obtendo a distacia limite por leitura do item de indice 5 que está na 
       distanciaLimite = atoi(getValue(configEspEprom, ',' , 5).c_str());
       distanciaAviso = distanciaLimite * 1.25;
       Serial.print("distanciaLimite: ");
